@@ -1,0 +1,42 @@
+# Virtual Environments
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+
+# ML Data & YOLO Runs (CRITICAL: Do not upload these heavy files to GitHub!)
+ml_pipeline/yolo_dataset/
+ml_pipeline/run/
+ml_pipeline/*.pt
+
+# Exclude all heavy model formats except the ONNX deployment model
+*.pt
+*.pth
+*.weights
+
+# IDEs
+.idea/
+.vscode/
+
+# Frontend Node Modules
+frontend/node_modules/
+frontend/dist/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Flask Uploads
+backend/uploads/

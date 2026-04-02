@@ -1,0 +1,4 @@
+kagglehub==0.3.3
+ultralytics>=8.0.0
+torch
+torchvision
