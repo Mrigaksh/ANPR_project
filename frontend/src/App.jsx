@@ -7,6 +7,8 @@ const API_URL = 'http://localhost:5000/api';
 function App() {
   const [auth, setAuth] = useState({ token: null, role: null, username: null });
   const [activeTab, setActiveTab] = useState('detection'); // Default tab
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Dynamic Data States
   const [myStats, setMyStats] = useState({ total_scans: 0, average_confidence: 0 });
@@ -23,6 +25,30 @@ function App() {
   const [isUploading, setIsUploading] = useState(false);
 
   // --- API Handlers ---
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const username = e.target.username.value;
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    try {
+      const res = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Registration successful! Please log in.");
+        setIsLoginMode(true); // Redirect back to login mode
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      alert("Server connection failed. Is Flask running?");
+    }
+  };
+
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const username = e.target.username.value;
@@ -62,6 +88,14 @@ function App() {
     }
   };
 
+  // --- UI Helpers ---
+  const getConfidenceMeta = (conf) => {
+    const percent = (conf * 100).toFixed(1);
+    if (conf >= 0.75) return { color: '#10b981', label: 'High', percent }; // Green
+    if (conf >= 0.50) return { color: '#f59e0b', label: 'Medium', percent }; // Orange
+    return { color: '#ef4444', label: 'Low', percent }; // Red
+  };
+
   const handleUploadClick = async () => {
     if (!uploadFile) return alert("Select an image first!");
     setIsUploading(true);
@@ -77,8 +111,12 @@ function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        setUploadResult({ text: data.plate_text, conf: data.confidence });
-        // Refresh dynamically natively
+        setUploadResult({
+          text: data.plate_text,
+          conf: data.confidence,
+          imageUrl: data.image_url
+        });
+        // Refresh stats and history
         authFetch('/my-stats').then(d => setMyStats(d));
         authFetch('/my-history').then(d => setMyHistory(d));
       } else {
@@ -107,49 +145,74 @@ function App() {
     }
   }, [activeTab, auth.token]);
 
-
   // --- Render Login if not Authed ---
   if (!auth.token) {
     return (
       <div className="auth-container">
         <div className="card auth-card">
           <h2 style={{ color: 'var(--primary)' }}>ANPR Platform</h2>
-          <p>Sign in to your account</p>
-          <form onSubmit={handleLogin}>
-            <input className="input-field" name="username" type="text" placeholder="Username" required />
-            <input className="input-field" name="password" type="password" placeholder="Password" required />
-            <button className="primary-btn" type="submit">Login</button>
-          </form>
+          <p>{isLoginMode ? "Sign in to your account" : "Create a new account"}</p>
+
+          {isLoginMode ? (
+            <form onSubmit={handleLogin}>
+              <input className="input-field" name="username" type="text" placeholder="Username" required />
+              <input className="input-field" name="password" type="password" placeholder="Password" required />
+              <button className="primary-btn" type="submit" style={{ marginTop: '10px' }}>Login</button>
+              <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }}>
+                Don't have an account? <span style={{ color: '#007bff', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setIsLoginMode(false)}>Register here</span>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister}>
+              <input className="input-field" name="username" type="text" placeholder="Username" required />
+              <input className="input-field" name="email" type="email" placeholder="Email" required />
+              <input className="input-field" name="password" type="password" placeholder="Password" required />
+              <button className="primary-btn" type="submit" style={{ marginTop: '10px' }}>Register</button>
+              <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }}>
+                Already have an account? <span style={{ color: '#007bff', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setIsLoginMode(true)}>Login here</span>
+              </p>
+            </form>
+          )}
         </div>
       </div>
     );
   }
 
+  const closeSidebar = () => setSidebarOpen(false);
+
   // --- RENDER SECTIONS BASED ON ROLE ---
   return (
     <div className="app-container">
 
+      {/* Mobile hamburger button */}
+      <button className="sidebar-toggle" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu">
+        {sidebarOpen ? '✕' : '☰'}
+      </button>
+
+      {/* Mobile overlay */}
+      <div className={`sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={closeSidebar} />
+
       {/* Dynamic Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <h2>ANPR Hub</h2>
         <div style={{ marginBottom: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
           Welcome, {auth.username} <br /><span style={{ textTransform: 'uppercase', fontWeight: 600 }}>[{auth.role}]</span>
         </div>
 
-        <button className={activeTab === 'detection' ? 'active' : ''} onClick={() => setActiveTab('detection')}>
+        <button className={activeTab === 'detection' ? 'active' : ''} onClick={() => { setActiveTab('detection'); closeSidebar(); }}>
           Detection Module
         </button>
 
         {/* Subadmin & Admin Only */}
         {['subadmin', 'admin'].includes(auth.role) && (
-          <button className={activeTab === 'team' ? 'active' : ''} onClick={() => setActiveTab('team')}>
+          <button className={activeTab === 'team' ? 'active' : ''} onClick={() => { setActiveTab('team'); closeSidebar(); }}>
             Team Section
           </button>
         )}
 
         {/* Admin Only */}
         {auth.role === 'admin' && (
-          <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setActiveTab('admin')}>
+          <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => { setActiveTab('admin'); closeSidebar(); }}>
             Admin Management
           </button>
         )}
@@ -173,9 +236,21 @@ function App() {
               </button>
 
               {uploadResult && (
-                <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <strong style={{ color: 'var(--secondary)', display: 'block', fontSize: '1.2rem' }}>{uploadResult.text}</strong>
-                  <span style={{ fontSize: '0.9rem', color: '#64748b' }}>Confidence: {(uploadResult.conf * 100).toFixed(1)}%</span>
+                <div className="upload-result">
+                  {uploadResult.imageUrl && (
+                    <img
+                      src={`http://localhost:5000/api/uploads/${uploadResult.imageUrl}`}
+                      alt="Scan"
+                    />
+                  )}
+                  <div className="plate-display">
+                    <small>Detected Plate</small>
+                    <strong>{uploadResult.text}</strong>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: '20px', background: getConfidenceMeta(uploadResult.conf).color + '22', color: getConfidenceMeta(uploadResult.conf).color, fontWeight: 700, fontSize: '0.85rem' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: getConfidenceMeta(uploadResult.conf).color, flexShrink: 0 }}></span>
+                      {getConfidenceMeta(uploadResult.conf).label} ({getConfidenceMeta(uploadResult.conf).percent}%)
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -187,27 +262,45 @@ function App() {
               </div>
               <div className="metric-box">
                 <h3>Average Confidence</h3>
-                <p>{(myStats.average_confidence * 100).toFixed(1)}%</p>
+                <p style={{ color: getConfidenceMeta(myStats.average_confidence).color }}>
+                  {getConfidenceMeta(myStats.average_confidence).percent}%
+                </p>
               </div>
             </div>
 
             <div className="card">
               <h3>My History</h3>
-              <table className="data-table">
-                <thead>
-                  <tr><th>Date</th><th>Plate Text</th><th>Confidence</th></tr>
-                </thead>
-                <tbody>
-                  {myHistory.map((row, i) => (
-                    <tr key={i}>
-                      <td>{new Date(row.date).toLocaleDateString()}</td>
-                      <td style={{ fontWeight: 600 }}>{row.text}</td>
-                      <td>{(row.conf * 100).toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                  {myHistory.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', color: '#cbd5e1' }}>No recognitions yet.</td></tr>}
-                </tbody>
-              </table>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Date</th><th>Image</th><th>Plate Text</th><th>Confidence</th></tr>
+                  </thead>
+                  <tbody>
+                    {myHistory.map((row, i) => {
+                      const meta = getConfidenceMeta(row.conf);
+                      return (
+                        <tr key={i}>
+                          <td>{new Date(row.date).toLocaleDateString()}</td>
+                          <td>
+                            <img
+                              src={`http://localhost:5000/api/uploads/${row.image}`}
+                              alt="thumb"
+                              style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                            />
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{row.text}</td>
+                          <td>
+                            <span style={{ color: meta.color, fontWeight: 700 }}>
+                              {meta.percent}% ({meta.label})
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {myHistory.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: '#cbd5e1' }}>No recognitions yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -223,29 +316,58 @@ function App() {
               </div>
               <div className="metric-box">
                 <h3>Export Data</h3>
-                <a href={`${API_URL}/export-csv`} target="_blank" rel="noreferrer">
-                  <button className="primary-btn" style={{ marginTop: '10px' }}>Download CSV</button>
-                </a>
+                <button
+                  className="primary-btn"
+                  style={{ marginTop: '10px' }}
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`${API_URL}/export-csv`, {
+                        headers: { 'Authorization': `Bearer ${auth.token}` }
+                      });
+                      if (!res.ok) {
+                        const err = await res.json();
+                        alert(err.message);
+                        return;
+                      }
+                      // Convert response to downloadable file
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'team_recognitions.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      alert('Failed to download CSV.');
+                    }
+                  }}
+                >
+                  Download CSV
+                </button>
               </div>
             </div>
             <div className="card">
               <h3>Team History</h3>
-              <table className="data-table">
-                <thead>
-                  <tr><th>User</th><th>Date</th><th>Plate Text</th><th>Confidence</th></tr>
-                </thead>
-                <tbody>
-                  {teamHistory.map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.user}</td>
-                      <td>{new Date(row.date).toLocaleDateString()}</td>
-                      <td style={{ fontWeight: 600 }}>{row.text}</td>
-                      <td>{(row.conf * 100).toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                  {teamHistory.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: '#cbd5e1' }}>No system records.</td></tr>}
-                </tbody>
-              </table>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>User</th><th>Date</th><th>Plate Text</th><th>Confidence</th></tr>
+                  </thead>
+                  <tbody>
+                    {teamHistory.map((row, i) => (
+                      <tr key={i}>
+                        <td>{row.user}</td>
+                        <td>{new Date(row.date).toLocaleDateString()}</td>
+                        <td style={{ fontWeight: 600 }}>{row.text}</td>
+                        <td>{(row.conf * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                    {teamHistory.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: '#cbd5e1' }}>No system records.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -270,38 +392,40 @@ function App() {
             </div>
             <div className="card">
               <h3>User Management</h3>
-              <table className="data-table">
-                <thead>
-                  <tr><th>Username</th><th>Email</th><th>Role</th><th>Action</th></tr>
-                </thead>
-                <tbody>
-                  {usersList.map((u, i) => (
-                    <tr key={i}>
-                      <td>{u.username}</td>
-                      <td>{u.email}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
-                      <td>
-                        {u.role !== 'admin' && (
-                          <button
-                            style={{ padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', background: 'var(--secondary)', border: 'none', color: 'var(--primary)' }}
-                            onClick={async () => {
-                              await fetch(`${API_URL}/admin/users/${u.id}/role`, {
-                                method: 'PUT',
-                                headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ role: u.role === 'user' ? 'subadmin' : 'user' })
-                              });
-                              authFetch('/admin/users').then(data => setUsersList(data || [])); // Auto-refresh users
-                            }}
-                          >
-                            Toggle Role
-                          </button>
-                        )}
-                        {u.role === 'admin' && <span style={{ color: '#94a3b8' }}>-</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Username</th><th>Email</th><th>Role</th><th>Action</th></tr>
+                  </thead>
+                  <tbody>
+                    {usersList.map((u, i) => (
+                      <tr key={i}>
+                        <td>{u.username}</td>
+                        <td>{u.email}</td>
+                        <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
+                        <td>
+                          {u.role !== 'admin' && (
+                            <button
+                              style={{ padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', background: 'var(--secondary)', border: 'none', color: 'var(--primary)' }}
+                              onClick={async () => {
+                                await fetch(`${API_URL}/admin/users/${u.id}/role`, {
+                                  method: 'PUT',
+                                  headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ role: u.role === 'user' ? 'subadmin' : 'user' })
+                                });
+                                authFetch('/admin/users').then(data => setUsersList(data || [])); // Auto-refresh users
+                              }}
+                            >
+                              Toggle Role
+                            </button>
+                          )}
+                          {u.role === 'admin' && <span style={{ color: '#94a3b8' }}>-</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -10,7 +10,9 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default='user') # 'user', 'subadmin', 'admin'
+    is_active = db.Column(db.Boolean, default=True, server_default='1', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     recognitions = db.relationship('Recognition', backref='user', lazy=True)
 

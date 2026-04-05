@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git
+uploads/
+*.db
+instance/
+seed_*.py
+db_test.py
+verify_fix.py
+yolo_dataset/
+run/
+*.pt

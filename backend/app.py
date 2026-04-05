@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 
@@ -23,6 +23,11 @@ def create_app(config_class=Config):
     @app.route('/health', methods=['GET'])
     def health_check():
         return jsonify({"status": "ok", "message": "ANPR Backend running smoothly"})
+
+    # Route to serve uploaded images correctly
+    @app.route('/api/uploads/<filename>')
+    def uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     from routes import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
