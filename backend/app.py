@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify
 from flask_cors import CORS
 import os
 
@@ -9,8 +9,12 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Allow CORS completely for React frontend development
-    CORS(app)
+    # Explicit CORS origins — allows both local dev and Vercel production
+    CORS(app, origins=[
+        "http://localhost:5173",         # Vite local dev
+        "http://localhost:3000",         # fallback local
+        "https://anpr-project.vercel.app",  # Vercel production
+    ], supports_credentials=True)
 
     db.init_app(app)
 
@@ -23,11 +27,6 @@ def create_app(config_class=Config):
     @app.route('/health', methods=['GET'])
     def health_check():
         return jsonify({"status": "ok", "message": "ANPR Backend running smoothly"})
-
-    # Route to serve uploaded images correctly
-    @app.route('/api/uploads/<filename>')
-    def uploaded_file(filename):
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     from routes import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
