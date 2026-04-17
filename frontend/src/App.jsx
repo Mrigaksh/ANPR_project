@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Generic fetch wrapper (Will connect to Flask: https://anprproject-production.up.railway.app/api)
-const API_URL = 'https://anpr-project-1n74.onrender.com';
+// Use environment variable for production, fallback to Render URL with /api suffix
+const API_URL = import.meta.env.VITE_API_URL || 'https://anpr-project-1n74.onrender.com/api';
 
 function App() {
   const [auth, setAuth] = useState({ token: null, role: null, username: null });
@@ -239,7 +239,7 @@ function App() {
                 <div className="upload-result">
                   {uploadResult.imageUrl && (
                     <img
-                      src={`http://localhost:5000/api/uploads/${uploadResult.imageUrl}`}
+                      src={`${API_URL}/uploads/${uploadResult.imageUrl}`}
                       alt="Scan"
                     />
                   )}
@@ -283,7 +283,7 @@ function App() {
                           <td>{new Date(row.date).toLocaleDateString()}</td>
                           <td>
                             <img
-                              src={`http://localhost:5000/api/uploads/${row.image}`}
+                              src={`${API_URL}/uploads/${row.image}`}
                               alt="thumb"
                               style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                             />
