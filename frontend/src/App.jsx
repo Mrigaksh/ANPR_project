@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 // Generic fetch wrapper (Will connect to Flask: https://anprproject-production.up.railway.app/api)
-const API_URL = 'https://anprproject-production.up.railway.app/api';
+const API_URL = 'https://anpr-project-1n74.onrender.com';
 
 function App() {
   const [auth, setAuth] = useState({ token: null, role: null, username: null });
